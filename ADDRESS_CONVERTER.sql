@@ -15,7 +15,6 @@ Create Or Replace Package ADDRESS_CONVERTER As
 End ADDRESS_CONVERTER;
 
 
-
 Create Or Replace Package Body ADDRESS_CONVERTER As
 
   Function NORMALIZE_TEXT(P_TEXT Nvarchar2) Return Nvarchar2 Is
@@ -48,6 +47,20 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
     O_PROVINCE := Trim(REGEXP_SUBSTR(V_WORKING, '[^,]+', 1, V_PARTS));
     O_DISTRICT := Trim(REGEXP_SUBSTR(V_WORKING, '[^,]+', 1, V_PARTS - 1));
     O_WARD     := Trim(REGEXP_SUBSTR(V_WORKING, '[^,]+', 1, V_PARTS - 2));
+    O_PROVINCE := REGEXP_SUBSTR(O_PROVINCE,
+                                '(Tỉnh\s+|Thành phố\s+|TP\.\s*|TP\s+)?([^\d,]+)',
+                                1, 1, 'i', 2);
+    O_DISTRICT := REGEXP_SUBSTR(O_DISTRICT,
+                                '(Huyện\s+|Quận\s+|Thị xã\s+|Thành phố\s+)?([^,\d]+)',
+                                1, 1, 'i', 2);
+    O_WARD     := REGEXP_SUBSTR(O_WARD,
+                                '(Phường\s+|Xã\s+|Thị trấn\s+|P\.|X\.|TT\.)?\s*([^,]+)',
+                                1, 1, 'i', 2);
+   /*
+    DBMS_OUTPUT.PUT_LINE(O_PROVINCE);
+    DBMS_OUTPUT.PUT_LINE(O_DISTRICT);
+    DBMS_OUTPUT.PUT_LINE(O_WARD);
+   */ 
     -- Phần còn lại là o_street (nếu có nhiều hơn 3 dấu phẩy)
     If V_PARTS > 4 Then
       V_POS := INSTR(V_WORKING, O_WARD, 1, 1);
@@ -86,10 +99,8 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
       Select *
       Into   L_MAPPING
       From   WARD_MAPPINGS
-      Where  NORMALIZE_TEXT(OLD_WARD_NAME) Like
-             '%' || NORMALIZE_TEXT(P_WARD) || '%' And
-             NORMALIZE_TEXT(OLD_PROVINCE_NAME) Like
-             '%' || NORMALIZE_TEXT(P_PROVINCE) || '%'
+      Where  NORMALIZE_TEXT(OLD_WARD_NAME) Like '%' || NORMALIZE_TEXT(P_WARD) || '%' And
+             NORMALIZE_TEXT(OLD_PROVINCE_NAME) Like '%' || NORMALIZE_TEXT(P_PROVINCE) || '%'
       Fetch  First 1 ROWS Only;
       Return L_MAPPING;
     Exception
@@ -147,3 +158,4 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
   End;
 
 End ADDRESS_CONVERTER;
+
