@@ -12,7 +12,7 @@ insert into TEMP_CONVERT_ADD xxxx;
 Begin
   For REC In (Select ID, OLD_ADD
               From   TEMP_CONVERT_ADD A
-              Where  A.NEW_ADD Is Null and REGEXP_COUNT(OLD_ADD, ',') >0 and rownum < 1000)
+              Where  A.NEW_ADD Is Null and REGEXP_COUNT(OLD_ADD, ',') >3)
   Loop
     Declare
       V_RESULT ADDRESS_CONVERTER.T_RESULT;
@@ -23,5 +23,7 @@ Begin
              MESSAGE = V_RESULT.MESSAGE
       Where  ID = REC.ID;
     End;
+    commit;
   End Loop;
 End;
+
