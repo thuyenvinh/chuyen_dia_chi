@@ -57,9 +57,8 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
     O_WARD     := REGEXP_SUBSTR(O_WARD,
                                 '(Phường\s+|Xã\s+|Thị trấn\s+|P\.|X\.|TT\.)?\s*([^,]+)',
                                 1, 1, 'i', 2);
-    DBMS_OUTPUT.PUT_LINE(O_PROVINCE);
-    DBMS_OUTPUT.PUT_LINE(O_DISTRICT);
-    DBMS_OUTPUT.PUT_LINE(O_WARD);
+   
+
     O_STREET := '';
     For I In 1 .. V_PARTS - 3
     Loop
