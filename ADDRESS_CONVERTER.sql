@@ -1,5 +1,3 @@
-
-
 Create Or Replace Package ADDRESS_CONVERTER As
 
   Type T_RESULT Is Record(
@@ -8,19 +6,21 @@ Create Or Replace Package ADDRESS_CONVERTER As
     CONVERTED_ADDRESS Nvarchar2(500),
     MESSAGE           Nvarchar2(200));
 
+  Function REMOVE_ACCENTS(P_STRING In Varchar2) Return Varchar2;
+
   Function NORMALIZE_TEXT(P_TEXT Nvarchar2) Return Nvarchar2;
 
   Function CONVERT_ADDRESS(P_ADDRESS In Nvarchar2) Return T_RESULT;
 
 End ADDRESS_CONVERTER;
-
-
+-------------
 Create Or Replace Package Body ADDRESS_CONVERTER As
 
   Function NORMALIZE_TEXT(P_TEXT Nvarchar2) Return Nvarchar2 Is
     L_TEXT Nvarchar2(500);
   Begin
-    L_TEXT := LOWER(Trim(P_TEXT));
+    --L_TEXT := LOWER(Trim(P_TEXT));
+    L_TEXT := REMOVE_ACCENTS(LOWER(Trim(P_TEXT)));
     -- Có thể mở rộng loại bỏ dấu tiếng Việt nếu cần thiết
     Return L_TEXT;
   End;
@@ -38,8 +38,9 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
   Begin
     V_WORKING := P_ADDRESS;
     V_COUNTRY := Trim(REGEXP_SUBSTR(V_WORKING, '[^,]+$', 1, 1));
+    DBMS_OUTPUT.PUT_LINE(V_WORKING);
     -- Nếu phần cuối là "Việt Nam" thì loại bỏ
-    If NORMALIZE_TEXT(V_COUNTRY) = 'việt nam' Then
+    If NORMALIZE_TEXT(V_COUNTRY) = NORMALIZE_TEXT('việt nam') Then
       -- Xoá cụm ", Việt Nam" ở cuối chuỗi (có thể có dấu cách)
       V_WORKING := REGEXP_REPLACE(V_WORKING, ',\s*Việt Nam$', '', 1, 1, 'i');
     End If;
@@ -56,13 +57,20 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
     O_WARD     := REGEXP_SUBSTR(O_WARD,
                                 '(Phường\s+|Xã\s+|Thị trấn\s+|P\.|X\.|TT\.)?\s*([^,]+)',
                                 1, 1, 'i', 2);
-   /*
     DBMS_OUTPUT.PUT_LINE(O_PROVINCE);
     DBMS_OUTPUT.PUT_LINE(O_DISTRICT);
     DBMS_OUTPUT.PUT_LINE(O_WARD);
-   */ 
+    O_STREET := '';
+    For I In 1 .. V_PARTS - 3
+    Loop
+      If I > 1 Then
+        O_STREET := O_STREET || ', ';
+      End If;
+      O_STREET := O_STREET || Trim(REGEXP_SUBSTR(V_WORKING, '[^,]+', 1, I));
+    End Loop;
+    --DBMS_OUTPUT.PUT_LINE(O_STREET);
     -- Phần còn lại là o_street (nếu có nhiều hơn 3 dấu phẩy)
-    If V_PARTS > 4 Then
+    /*    If V_PARTS > 4 Then
       V_POS := INSTR(V_WORKING, O_WARD, 1, 1);
       If V_POS > 1 Then
         O_STREET := RTRIM(SUBSTR(V_WORKING, 1, V_POS - 2), ', ');
@@ -72,6 +80,7 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
     Else
       O_STREET := Trim(REGEXP_SUBSTR(V_WORKING, '[^,]+', 1, 1));
     End If;
+    DBMS_OUTPUT.PUT_LINE(O_STREET);*/
   End;
 
   Function FIND_BEST_MAPPING(P_WARD     Nvarchar2,
@@ -98,9 +107,13 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
     Begin
       Select *
       Into   L_MAPPING
-      From   WARD_MAPPINGS
-      Where  NORMALIZE_TEXT(OLD_WARD_NAME) Like '%' || NORMALIZE_TEXT(P_WARD) || '%' And
-             NORMALIZE_TEXT(OLD_PROVINCE_NAME) Like '%' || NORMALIZE_TEXT(P_PROVINCE) || '%'
+      From   WARD_MAPPINGS A
+      Where  ADDRESS_CONVERTER.NORMALIZE_TEXT(A.OLD_WARD_NAME) Like
+             '%' || ADDRESS_CONVERTER.NORMALIZE_TEXT(P_WARD) || '%' And
+             ADDRESS_CONVERTER.NORMALIZE_TEXT(A.OLD_DISTRICT_NAME) Like
+             '%' || ADDRESS_CONVERTER.NORMALIZE_TEXT(P_DISTRICT) || '%' And
+             ADDRESS_CONVERTER.NORMALIZE_TEXT(A.OLD_PROVINCE_NAME) Like
+             '%' || ADDRESS_CONVERTER.NORMALIZE_TEXT(P_PROVINCE) || '%'
       Fetch  First 1 ROWS Only;
       Return L_MAPPING;
     Exception
@@ -157,5 +170,15 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
     Return T_RESULT(L_SUCCESS, P_ADDRESS, L_NEW_ADDRESS, L_MESSAGE);
   End;
 
-End ADDRESS_CONVERTER;
+  -- hàm này chậm kinh khủng
+  Function REMOVE_ACCENTS(P_STRING In Varchar2) Return Varchar2 Is
+    V_RESULT Varchar2(4000);
+  Begin
+    V_RESULT := TRANSLATE(P_STRING,
+                          'ăâđêôơưàảãạáằẳẵặắầẩẫậấèẻẽẹéềểễệếìỉĩịíòỏõọóồổỗộốờởỡợớùủũụúừửữựứỳỷỹỵýĂÂĐÊÔƠƯÀẢÃẠÁẰẲẴẶẮẦẨẪẬẤÈẺẼẸÉỀỂỄỆẾÌỈĨỊÍÒỎÕỌÓỒỔỖỘỐỜỞỠỢỚÙỦŨỤÚỪỬỮỰỨỲỶỸỴÝ',
+                          'aadeoouaaaaaaaaaaaaaaaeeeeeeeeeeiiiiiooooooooooooooouuuuuuuuuuyyyyyAADEOOUAAAAAAAAAAAAAAAEEEEEEEEEEIIIIIOOOOOOOOOOOOOOOUUUUUUUUUUYYYYYDD'); -- Loại bỏ ký tự không phải chữ hoặc số
+    V_RESULT := REGEXP_REPLACE(V_RESULT, '[^a-z0-9]', '');
+    Return V_RESULT;
+  End;
 
+End ADDRESS_CONVERTER;
