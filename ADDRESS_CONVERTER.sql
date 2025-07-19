@@ -38,7 +38,7 @@ Create Or Replace Package Body ADDRESS_CONVERTER As
   Begin
     V_WORKING := P_ADDRESS;
     V_COUNTRY := Trim(REGEXP_SUBSTR(V_WORKING, '[^,]+$', 1, 1));
-    DBMS_OUTPUT.PUT_LINE(V_WORKING);
+    --DBMS_OUTPUT.PUT_LINE(V_WORKING);
     -- Nếu phần cuối là "Việt Nam" thì loại bỏ
     If NORMALIZE_TEXT(V_COUNTRY) = NORMALIZE_TEXT('việt nam') Then
       -- Xoá cụm ", Việt Nam" ở cuối chuỗi (có thể có dấu cách)
